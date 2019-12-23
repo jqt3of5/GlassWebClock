@@ -1,8 +1,22 @@
+#include <ESP8266WiFi.h>
+#include <WiFiClient.h>
+
+#include <ESP8266WebServerSecure.h>
 
 extern ESP8266WebServerSecure server;
+const int led = 13;
 // GET "/"
 void handleRoot() {
   digitalWrite(led, 1);
+  char buffer[256] ={0};
+  
+  int n = WiFi.scanNetworks();
+  for(int i = 0; i < n; ++i)
+  {
+    Serial.println(WiFi.SSID(i));
+    
+  }
+  
   server.send(200, "text/plain", "Hello from esp8266 over HTTPS!");
   digitalWrite(led, 0);
 }

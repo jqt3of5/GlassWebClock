@@ -6,40 +6,53 @@
 
 #include "certs.h"
 #include "api.h"
+#include "dotstar5050.h"
 
-const char* ssid = "";
-const char* password = "";
+const char* ssid = "WaitingOnComcast";
+const char* password = "1594N2640W";
 
 ESP8266WebServerSecure server(443);
 
-const int led = 13;
+const int led = 2;
 
 void setupConfigMode()
 {
-  if (WiFi.softAp("esp8266"))
+  if (WiFi.softAP("esp8266", "testtest123"))
   {
     Serial.println("softAP started");
   }
-  
+  delay(100);
   Serial.println("");
 
   Serial.print("IP address: ");
+  Serial.println(WiFi.softAPIP());
   Serial.println(WiFi.localIP());
 }
 
-bool setupConnectedMode(char * ssid, char * pwd)
+bool setupConnectedMode(const char * ssid,const char * pwd)
 {
-  Serial.println("Connecting To AP: %d", ssid);
-   WiFi.begin(ssid, password);
-   
-   while (WiFi.status() == WL_IDLE_STATUS) {
+  Serial.print("Connecting To AP: ");
+  Serial.println(ssid);
+  WiFi.begin(ssid, password);
+
+  int retryCount = 20;
+  while (WiFi.status() != WL_CONNECTED) {
     delay(500);
+    
+    Serial.print(WiFi.status());
     Serial.print(".");
+    
+    if (retryCount == 0)
+    {
+      break;
+    }
+    retryCount -= 1;
   }
 
   if (WiFi.status() != WL_CONNECTED)
   {
-    Serial.println("Failed to connect, WiFi Status: %d", WiFi.Status());
+    Serial.print("Failed to connect, WiFi Status: ");
+    Serial.println(WiFi.status());
     return false;
   }
   
@@ -67,10 +80,10 @@ void setup(void) {
     Serial.println("MDNS responder started");
   }
 
-  server.setServerKeyAndCert_P(rsakey, sizeof(rsakey), x509, sizeof(x509));
+  server.getServer().setServerKeyAndCert_P(rsakey, sizeof(rsakey), x509, sizeof(x509));
 
   server.on("/", handleRoot);
-  server.on("/wifi", handleWifiCreds);
+  server.on("/wifi", handleWiFiCreds);
   server.on("/timezone",handleSetTimeZone);
   server.on("/time", handleSetTime);
   server.on("/custom", handleCustomLED);
