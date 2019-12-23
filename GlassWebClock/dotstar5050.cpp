@@ -9,7 +9,7 @@
 #define CLOCK_DELAY_MS 10
 //#define MULTI_CLOCK 1
 
-#define TICK_CLOCK(PIN) digitalWrite(c, LOW); delay(CLOCK_DELAY_MS); digitalWrite(c, HIGH); delay(CLOCK_DELAY_MS);
+#define TICK_CLOCK(PIN) digitalWrite(PIN, LOW); delay(CLOCK_DELAY_MS); digitalWrite(PIN, HIGH); delay(CLOCK_DELAY_MS);
 
 #ifdef MUTLI_CLOCK
 static int * _clocks;
@@ -90,7 +90,7 @@ void writeEndFrame(int * data[]){
 //// serialCount: How many Leds are in a row for each GPIO pin
 //// clock: The gpio pin that is the clock
 ////
-void 5050_initSharedClock(int dataOuts[], int dataOutCount, int serialCount, int clock)
+void led5050_initSharedClock(int dataOuts[], int dataOutCount, int serialCount, int clock)
 {
   _dataOuts = (int*)calloc(dataOutCount, sizeof(int));
   _dataOutCount = dataOutCount;
@@ -121,7 +121,7 @@ void 5050_initMultiClock(int dataOuts[], int serialCounts[], int clocks[], int c
 }
 */
 
-void 5050_writeData(int * data[]) {
+void led5050_writeData(int * data[]) {
   
   writeStartFrame(data);
   //Digits
