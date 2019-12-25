@@ -4,79 +4,67 @@
     Created on: 24.05.2015
 
 */
+#ifndef UNIT_TEST
 #include <ESP8266WiFi.h>
+#else
+#include "MockArduino.h"
+#endif
+
 
 #define CLOCK_DELAY_MS 10
 //#define MULTI_CLOCK 1
 
 #define TICK_CLOCK(PIN) digitalWrite(PIN, LOW); delay(CLOCK_DELAY_MS); digitalWrite(PIN, HIGH); delay(CLOCK_DELAY_MS);
-
+#define CHANNEL_COUNT 3
 #ifdef MUTLI_CLOCK
-static int * _clocks;
-static int * _serialCounts;
+static int  _serialCounts[CHANNEL_COUNT];
+static uint8_t _clocks[CHANNEL_COUNT];
 #else
-static int _clock;
+static uint8_t _clock;
 static int _serialCount;
 #endif
 
-static int * _dataOuts;
-static int _dataOutCount;
+static uint8_t _dataOutPins[CHANNEL_COUNT];
 
+#ifdef MULTI_CLOCK
+void writeStartFrame(int * data, int channel)
+#else
 void writeStartFrame(int * data[])
+#endif
 {
   //start frame
-  for (int channel = 0; channel < _dataOutCount; ++channel)
-  {
-    
-    #ifdef MULTI_CLOCK
-      if (data[channel] == 0)
-      {
-        continue;
-      }
-    #endif
-    digitalWrite(_dataOuts[channel], 0);
-  }
+  #ifndef MULTI_CLOCK
+  for (int channel = 0; channel < CHANNEL_COUNT; ++channel)
+  #endif
+    digitalWrite(_dataOutPins[channel], 0);
   
   for (int mask = 0; mask < 32; ++mask)
   {
     #ifdef MULTI_CLOCK
-      for(int channel = 0; channel < _dataOutCount; ++channel)
-      {
-        if (data[channel] == 0)
-        {
-          continue;
-        }
-        TICK_CLOCK(_clocks[channel});
-      }
+      TICK_CLOCK(_clocks[channel});
     #else
       TICK_CLOCK(_clock);
     #endif
   }
 }
-void writeEndFrame(int * data[]){
-  //end frame  
-  for (int i = 0; i < _dataOutCount; ++i)
-  {
-    #ifdef MULTI_CLOCK
-        if (data[channel] == 0)
-        {
-          continue;
-        }
-    #endif
-    digitalWrite(_dataOuts[i], 1);
-  }
 
+
+#ifdef MULTI_CLOCK
+void writeEndFrame(int * data, int channel)
+#else
+void writeEndFrame(int * data[])
+#endif
+{
+  //end frame  
+  #ifndef MULTI_CLOCK
+  for (int channel = 0; channel < CHANNEL_COUNT; ++channel)
+  #endif
+    digitalWrite(_dataOutPins[channel], 1);
+  
   for (int mask = 0; mask < 32; ++mask)
   {
     #ifdef MULTI_CLOCK
-      for(int channel = 0; channel < _dataOutCount; ++channel)
-      {
-        if (data[channel] == 0)
-        {
-          continue;
-        }
-        TICK_CLOCK(_clocks[channel});
-      }
+      TICK_CLOCK(_clocks[channel});
     #else
       TICK_CLOCK(_clock);
     #endif
@@ -90,99 +78,103 @@ void writeEndFrame(int * data[]){
 //// serialCount: How many Leds are in a row for each GPIO pin
 //// clock: The gpio pin that is the clock
 ////
-void led5050_initSharedClock(int dataOuts[], int dataOutCount, int serialCount, int clock)
+#ifdef MULTI_CLOCK
+void led5050_init(int dataOuts[], int serialCounts[], int clocks[])
+#else
+void led5050_init(int dataOuts[], int serialCount, int clock)
+#endif
 {
-  _dataOuts = (int*)calloc(dataOutCount, sizeof(int));
-  _dataOutCount = dataOutCount;
-  _serialCount = serialCount;
-  _clock = clock;
   
-  for(int i = 0; i < dataOutCount; ++i)
+  for (int channel = 0; channel < CHANNEL_COUNT; ++channel)
   {
-    pinMode(dataOuts[i], OUTPUT);
-    digitalWrite(dataOuts[i], LOW);
+    _dataOutPins[channel] = dataOuts[channel];
+    #ifdef MULTI_CLOCK
+    _serialCounts[channel] = serialCounts[channel];
+    _clocks[channel] = clocks[channel];
+    #endif
   }
   
-  pinMode(clock, OUTPUT); 
-
-  //Active LOW
-  digitalWrite(clock, HIGH);
-}
-
-//// Parameters:
-//// dataOuts: the GPIO pin numbers for each individual channel
-//// serialCounts: How many Leds are in a row for each GPIO pin
-//// clocks: The gpio pin that is the clock
-//// count: The numeber of individual channels
-/** Not Implemented **
-void 5050_initMultiClock(int dataOuts[], int serialCounts[], int clocks[], int count)
-{
+  #ifndef MULTI_CLOCK
+  _serialCount = serialCount;
+  _clock = clock;
+  #endif
   
-}
-*/
+  for(int channel = 0; channel < CHANNEL_COUNT; ++channel)
+  {
+    pinMode(dataOuts[channel], OUTPUT);
+    digitalWrite(dataOuts[channel], LOW);
+  }
 
+  #ifdef MULTI_CLOCK
+  for (int channel = 0; channel< CHANNEL_COUNT; ++channel)
+  {
+    int clock = _clocks[channel];
+  #endif
+    pinMode(clock, OUTPUT); 
+    //Active LOW
+    digitalWrite(clock, HIGH);
+  
+  #ifdef MULTI_CLOCK
+  }
+  #endif
+    
+}
+
+#ifdef MULTI_CLOCK
+void led5050_writeData(int data[], int channel){
+  writeStartFrame(data,channel); 
+  int ledCount = _serialCounts[channel];
+#else
 void led5050_writeData(int * data[]) {
-  
   writeStartFrame(data);
+  int ledCount = _serialCount;
+#endif
+  
   //Digits
-  for (int i = _serialCount; i >= 0; --i)
+  for (int i = ledCount; i >= 0; --i)
   {
     //Write the 3 bits
-    for (int channel = 0; channel < _dataOutCount; ++channel)
-    {
-      #ifdef MULTI_CLOCK
-        if (data[channel] == 0)
-        {
-          continue;
-        }
-      #endif
-        digitalWrite(_dataOuts[channel], HIGH);  
-    }
+    #ifndef MULTI_CLOCK
+    for (int channel = 0; channel < CHANNEL_COUNT; ++channel)
+    #endif
+        digitalWrite(_dataOutPins[channel], HIGH);  
+    
     for (int mask = 0; mask < 3; ++mask)
     {
       #ifdef MULTI_CLOCK
-        for(int channel = 0; channel < _dataOutCount; ++channel)
-        {
-          if (data[channel] = 0)
-          {
-            continue;
-          }
-          TICK_CLOCK(_clocks[channel});
-        }
+        TICK_CLOCK(_clocks[channel});
       #else
         TICK_CLOCK(_clock);
       #endif
     }
-
+    
+    #ifdef MULTI_CLOCK
+    int value = data[i];
+    #endif
+    
     //Write the brightness/colors
-    for (int mask = 28; mask >=0; --mask)
+    for (int mask = 1 << 28; mask >=1; mask = mask >> 1)
     {
-      for (int channel = 0; channel < _dataOutCount; ++channel)
-      {
-        
-        #ifdef MULTI_CLOCK
-          if (data[channel] == 0)
-          {
-            continue;
-          }
-        #endif
-        digitalWrite(_dataOuts[channel], (data[channel][i] & 1 << mask) ? HIGH : LOW);
-      }
+      
+      #ifndef MULTI_CLOCK
+      for (int channel = 0; channel < CHANNEL_COUNT; ++channel) {
+        int value = data[channel][i];
+      #endif
+      
+        digitalWrite(_dataOutPins[channel], (value & mask) ? HIGH : LOW);
       
       #ifdef MULTI_CLOCK
-        for(int channel = 0; channel < _dataOutCount; ++channel)
-        {
-          if (data[channel] = 0)
-          {
-            continue;
-          }
           TICK_CLOCK(_clocks[channel});
-        }
       #else
+        }
         TICK_CLOCK(_clock);
       #endif
     }
   }
-  writeEndFrame(data);
- 
+
+  #ifdef MULTI_CLOCK
+    writeEndFrame(data, channel);
+  #else
+    writeEndFrame(data);
+  #endif
 }

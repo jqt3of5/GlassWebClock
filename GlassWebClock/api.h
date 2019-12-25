@@ -1,7 +1,9 @@
 // GET "/"
 void handleRoot();
 void handleNotFound();
-// POST "/wifi"
+//GET /scan
+void handleScanWiFi();
+// POST "/wifiCreds"
 void handleWiFiCreds();
 // POST "/timezone"
 void handleSetTimeZone();

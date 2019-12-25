@@ -8,14 +8,12 @@
 #include "api.h"
 #include "dotstar5050.h"
 
-const char* ssid = "WaitingOnComcast";
-const char* password = "1594N2640W";
 
 ESP8266WebServerSecure server(443);
 
 const int led = 2;
 
-void setupConfigMode()
+void startSoftAP()
 {
   if (WiFi.softAP("esp8266", "testtest123"))
   {
@@ -29,11 +27,10 @@ void setupConfigMode()
   Serial.println(WiFi.localIP());
 }
 
-bool setupConnectedMode(const char * ssid,const char * pwd)
+bool connectToLastAP()
 {
-  Serial.print("Connecting To AP: ");
-  Serial.println(ssid);
-  WiFi.begin(ssid, password);
+  Serial.print("Connecting To AP");
+  WiFi.begin();
 
   int retryCount = 20;
   while (WiFi.status() != WL_CONNECTED) {
@@ -57,8 +54,6 @@ bool setupConnectedMode(const char * ssid,const char * pwd)
   }
   
   Serial.println("");
-  Serial.print("Connected to ");
-  Serial.println(ssid);
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
   return true;
@@ -70,10 +65,10 @@ void setup(void) {
   Serial.begin(115200);
 
   //Check if we start in connected mode, eg. connect to the last wifi AP
-  if (!setupConnectedMode(ssid, password))
+  if (!connectToLastAP())
   {
     //setup in Config mode with the soft AP
-    setupConfigMode();
+    startSoftAP();
   }
   
   if (MDNS.begin("esp8266")) {
@@ -83,7 +78,8 @@ void setup(void) {
   server.getServer().setServerKeyAndCert_P(rsakey, sizeof(rsakey), x509, sizeof(x509));
 
   server.on("/", handleRoot);
-  server.on("/wifi", handleWiFiCreds);
+  server.on("/scan", handleScanWiFi);
+  server.on("/wifiCreds", handleWiFiCreds);
   server.on("/timezone",handleSetTimeZone);
   server.on("/time", handleSetTime);
   server.on("/custom", handleCustomLED);
