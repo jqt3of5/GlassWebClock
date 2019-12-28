@@ -49,6 +49,7 @@ void handleScanWiFi()
   {
     String wifi = WiFi.SSID(i);
     strncat(buffer, wifi.c_str(), wifi.length());
+    strncat(buffer, ",", 1);
   }
 
   server.send(200, "text/plain", buffer);
