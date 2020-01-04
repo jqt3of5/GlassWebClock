@@ -1,17 +1,24 @@
-
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <ESP8266WebServerSecure.h>
 #include <ESP8266mDNS.h>
-
+#include <WiFiClientSecure.h>
 #include "certs.h"
 #include "api.h"
 #include "dotstar5050.h"
 
-
+WiFiClientSecure client;
 ESP8266WebServerSecure server(443);
 
+X509List cacert(ca);
+X509List cert(x509);
+PrivateKey key(rsakey);
+
 const int led = 2;
+
+//TODO: Really should be persisted in flash memory
+int timeZone = 6;
+
 
 void startSoftAP()
 {
@@ -34,8 +41,10 @@ bool connectToLastAP()
 
   int retryCount = 20;
   while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    
+    digitalWrite(led, HIGH);
+    delay(250);
+    digitalWrite(led, LOW);
+    delay(250);
     Serial.print(WiFi.status());
     Serial.print(".");
     
@@ -50,33 +59,30 @@ bool connectToLastAP()
   {
     Serial.print("Failed to connect, WiFi Status: ");
     Serial.println(WiFi.status());
+    digitalWrite(led, HIGH);
     return false;
   }
   
   Serial.println("");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
+  digitalWrite(led, LOW);
   return true;
 }
 
-void setup(void) {
-  pinMode(led, OUTPUT);
-  digitalWrite(led, 0);
-  Serial.begin(115200);
-
-  //Check if we start in connected mode, eg. connect to the last wifi AP
-  if (!connectToLastAP())
-  {
-    //setup in Config mode with the soft AP
-    startSoftAP();
-  }
+void connectToNTP()
+{
+  Serial.print("getting time from ntp");
+  configTime(timeZone * 3600, 0, "pool.ntp.org", "ime.nist.gov");
+}
+bool connectToMQTT()
+{
   
-  if (MDNS.begin("esp8266")) {
-    Serial.println("MDNS responder started");
-  }
+}
 
-  server.getServer().setServerKeyAndCert_P(rsakey, sizeof(rsakey), x509, sizeof(x509));
-
+void startConfigServer()
+{
+  server.getServer().setServerKeyAndCert_P((const uint8_t*)rsakey, sizeof(rsakey), (const uint8_t*)x509, sizeof(x509));
   server.on("/", handleRoot);
   server.on("/scan", handleScanWiFi);
   server.on("/wifiCreds", handleWiFiCreds);
@@ -88,6 +94,35 @@ void setup(void) {
 
   server.begin();
   Serial.println("HTTPS server started");
+}
+
+void setup(void) {
+  pinMode(led, OUTPUT);
+  digitalWrite(led, 0);
+
+  Serial.begin(115200);
+
+  client.setTrustAnchors(&cacert);
+  client.setClientRSACert(&cert, &key);
+
+  //Check if we start in connected mode, eg. connect to the last wifi AP
+  if (connectToLastAP())
+    {
+      connectToNTP();
+      connectToMQTT();
+    }
+  else
+    {
+      //setup in Config mode with the soft AP
+      startSoftAP();
+    }
+ 
+  if (MDNS.begin("esp8266")) {
+    Serial.println("MDNS responder started");
+  }
+
+  startConfigServer();
+
 }
 
 void loop(void) {
